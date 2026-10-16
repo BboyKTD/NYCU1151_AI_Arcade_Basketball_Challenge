@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Arcade Basketball Challenge</title>
+<style>
+  :root {
+    --bg: #1b1f2a;
+    --panel: #242938;
+    --accent: #ff7a30;
+    --accent2: #3ad1c9;
+    --text: #f4f6fb;
+    --muted: #9aa3b8;
+    --danger: #ff4d6d;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    overflow: hidden;
+    touch-action: none;
+  }
+  #app {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas#game {
+    display: block;
+    background: linear-gradient(180deg, #202537 0%, #171b26 100%);
+    touch-action: none;
+    -webkit-user-drag: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    text-align: center;
+    padding: 24px;
+    background: rgba(20, 23, 32, 0.78);
+    backdrop-filter: blur(2px);
+  }
+  .hidden { display: none !important; }
+  h1 {
+    font-size: clamp(28px, 6vw, 48px);
+    margin: 0;
+    letter-spacing: 1px;
+    color: var(--text);
+  }
+  h1 span { color: var(--accent); }
+  .subtitle {
+    color: var(--muted);
+    font-size: clamp(13px, 2.4vw, 16px);
+    max-width: 420px;
+    line-height: 1.6;
+  }
+  .btn {
+    appearance: none;
+    border: none;
+    border-radius: 999px;
+    padding: 14px 34px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    color: #141720;
+    background: var(--accent);
+    box-shadow: 0 6px 18px rgba(255, 122, 48, 0.35);
+    transition: transform 0.12s ease;
+  }
+  .btn:active { transform: scale(0.96); }
+  .btn.secondary {
+    background: transparent;
+    color: var(--text);
+    border: 2px solid var(--accent2);
+    box-shadow: none;
+  }
+  .btn-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+  .panel {
+    background: var(--panel);
+    border-radius: 16px;
+    padding: 20px 24px;
+    width: min(420px, 90vw);
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 6px 4px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.08); }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+  tr:first-child td { color: var(--accent); font-weight: 700; }
+
+  #hud {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    justify-content: space-between;
+    padding: max(10px, env(safe-area-inset-top)) 16px 0 16px;
+    pointer-events: none;
+    font-weight: 700;
+  }
+  .hud-box {
+    background: rgba(20,23,32,0.6);
+    border-radius: 12px;
+    padding: 8px 14px;
+    font-size: clamp(14px, 3vw, 18px);
+    min-width: 72px;
+  }
+  .hud-label { font-size: 10px; color: var(--muted); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+  #combo-badge {
+    position: absolute;
+    top: 64px; left: 50%; transform: translate(-50%, 0);
+    font-size: 15px; font-weight: 800; color: var(--accent2);
+    opacity: 0; transition: opacity 0.2s;
+    pointer-events: none;
+  }
+  #fever-banner {
+    position: absolute;
+    top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.8);
+    font-size: clamp(26px, 6vw, 46px);
+    font-weight: 900;
+    color: var(--danger);
+    text-shadow: 0 0 18px rgba(255,77,109,0.8);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  #fever-banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  #stage-banner {
+    position: absolute;
+    top: 38%; left: 50%; transform: translate(-50%, -50%) scale(0.85);
+    font-size: clamp(22px, 5.5vw, 38px);
+    font-weight: 900;
+    color: var(--accent2);
+    text-shadow: 0 0 16px rgba(58,209,201,0.7);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s, transform 0.3s;
+    text-align: center;
+  }
+  #stage-banner.show { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  #hud-target {
+    position: absolute;
+    top: 94px; left: 50%; transform: translateX(-50%);
+    font-size: clamp(13px, 2.6vw, 16px);
+    font-weight: 700;
+    color: var(--accent2);
+    background: rgba(20,23,32,0.55);
+    padding: 6px 14px;
+    border-radius: 999px;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  #hud-target.near { color: #ffb020; animation: pulseTarget 0.9s ease-in-out infinite; }
+  #hud-target.ahead { color: #ffd84d; text-shadow: 0 0 10px rgba(255,216,77,0.8); animation: shimmerTarget 1.6s ease-in-out infinite; }
+  @keyframes pulseTarget { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+  @keyframes shimmerTarget { 0%, 100% { text-shadow: 0 0 6px rgba(255,216,77,0.5); } 50% { text-shadow: 0 0 16px rgba(255,216,77,1); } }
+
+  .name-input {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 2px solid var(--accent2);
+    background: #141720;
+    color: var(--text);
+    font-size: 16px;
+    text-align: center;
+  }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    width: min(360px, 90vw);
+  }
+  .stat-card {
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 12px;
+  }
+  .stat-card .v { font-size: 22px; font-weight: 800; color: var(--accent2); }
+  .stat-card .l { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  footer-note { display:none; }
+  .small-note { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="game" draggable="false"></canvas>
+
+  <div id="hud" class="hidden">
+    <div class="hud-box"><div class="hud-label">Stage</div><div id="hud-stage">1</div></div>
+    <div class="hud-box"><div class="hud-label">Time</div><div id="hud-time">60</div></div>
+    <div class="hud-box"><div class="hud-label">本關進度</div><div id="hud-score">0 / 45</div></div>
+    <div class="hud-box"><div class="hud-label">Combo</div><div id="hud-combo">0</div></div>
+  </div>
+  <div id="combo-badge"></div>
+  <div id="fever-banner">FEVER TIME!</div>
+  <div id="stage-banner"></div>
+  <div id="hud-target" class="hidden"></div>
+
+  <div id="screen-home" class="overlay">
+    <h1>🏀 Arcade <span>Basketball</span> Challenge</h1>
+    <p class="subtitle">拖曳或滑動籃球朝籃框投射！共 3 關，每關有時間限制與過關門檻分數，分數會累計帶到下一關；時間到沒達標就宣告結束。連續進球觸發 Combo，各關最後一段時間進入 Fever，每球得分提高。第 2 關起籃框會左右移動，第 3 關起籃框會左右上下移動。球池中偶爾會混入金色「高分球」與縮小的紫色「搗蛋球」，記得抓準時機再出手！</p>
+    <div class="btn-row">
+      <button class="btn" id="btn-start-solo">單人模式</button>
+      <button class="btn" id="btn-start-duo">雙人對戰</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn secondary" id="btn-leaderboard">查看排行榜</button>
+    </div>
+    <p class="small-note">滑鼠拖曳 / 手指滑動皆可操作，支援手機直橫與桌機</p>
+  </div>
+
+  <div id="screen-name-entry" class="overlay hidden">
+    <h1 id="name-entry-title">玩家登場</h1>
+    <p id="name-entry-subtitle" class="subtitle hidden"></p>
+    <input type="text" id="name-entry-input" class="name-input" maxlength="12" placeholder="輸入暱稱（可留空）">
+    <div class="btn-row">
+      <button class="btn" id="btn-name-entry-start">開始遊戲</button>
+    </div>
+  </div>
+
+  <div id="screen-duo-result" class="overlay hidden">
+    <h1 id="duo-result-title">對戰結果</h1>
+    <div class="panel">
+      <table>
+        <thead><tr><th></th><th id="duo-p1-name">P1</th><th id="duo-p2-name">P2</th></tr></thead>
+        <tbody>
+          <tr><td>分數</td><td id="duo-p1-score">0</td><td id="duo-p2-score">0</td></tr>
+          <tr><td>命中率</td><td id="duo-p1-acc">0%</td><td id="duo-p2-acc">0%</td></tr>
+          <tr><td>Max Combo</td><td id="duo-p1-combo">0</td><td id="duo-p2-combo">0</td></tr>
+          <tr><td>關卡</td><td id="duo-p1-stage">1</td><td id="duo-p2-stage">1</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="btn-duo-save">存入排行榜</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn secondary" id="btn-duo-replay">再玩一次（雙人）</button>
+      <button class="btn secondary" id="btn-duo-home">返回首頁</button>
+    </div>
+  </div>
+
+  <div id="screen-leaderboard" class="overlay hidden">
+    <h1>排行榜</h1>
+    <div class="panel">
+      <table>
+        <thead>
+          <tr><th>#</th><th>名稱</th><th>分數</th><th>命中率</th><th>Max Combo</th><th>關卡</th></tr>
+        </thead>
+        <tbody id="leaderboard-body"></tbody>
+      </table>
+    </div>
+    <div class="btn-row">
+      <button class="btn" id="btn-back-home">返回首頁</button>
+    </div>
+  </div>
+
+  <div id="screen-result" class="overlay hidden">
+    <h1 id="result-title">結算</h1>
+    <p id="result-subtitle" class="subtitle"></p>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="v" id="res-score">0</div><div class="l">Score</div></div>
+      <div class="stat-card"><div class="v" id="res-accuracy">0%</div><div class="l">Accuracy</div></div>
+      <div class="stat-card"><div class="v" id="res-shots">0</div><div class="l">Shots</div></div>
+      <div class="stat-card"><div class="v" id="res-combo">0</div><div class="l">Max Combo</div></div>
+    </div>
+    <div id="rank-note" class="subtitle hidden"></div>
+    <input type="text" id="player-name" class="name-input" maxlength="12" placeholder="輸入你的暱稱 (可留空)">
+    <div class="btn-row">
+      <button class="btn" id="btn-save-replay">儲存並再玩一次</button>
+      <button class="btn secondary" id="btn-save-leaderboard">儲存並看排行榜</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Setup ----------
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const app = document.getElementById('app');
+
+  const screens = {
+    home: document.getElementById('screen-home'),
+    leaderboard: document.getElementById('screen-leaderboard'),
+    result: document.getElementById('screen-result'),
+    nameEntry: document.getElementById('screen-name-entry'),
+    duoResult: document.getElementById('screen-duo-result'),
+  };
+  const hud = document.getElementById('hud');
+  const hudStage = document.getElementById('hud-stage');
+  const hudTime = document.getElementById('hud-time');
+  const hudScore = document.getElementById('hud-score');
+  const hudCombo = document.getElementById('hud-combo');
+  const hudTarget = document.getElementById('hud-target');
+  const comboBadge = document.getElementById('combo-badge');
+  const feverBanner = document.getElementById('fever-banner');
+  const stageBanner = document.getElementById('stage-banner');
+
+  const LB_KEY = 'abc_leaderboard_v1';
+
+  // Special balls: rolled whenever a ball enters the 'ready' queue; multiplier applies to the
+  // whole shot's gained score (base + combo bonus), radiusScale shrinks the ball's actual
+  // physics radius (harder to land), not just its drawn size.
+  const SPECIAL_CHANCE = 0.18;
+  const SPECIAL_TYPES = {
+    hot: { multiplier: 3, radiusScale: 1, color: '#ffd84d', glow: '#ffe8a3' },
+    trick: { multiplier: 2, radiusScale: 0.6, color: '#c76bff', glow: '#e3a6ff' },
+  };
+  function rollSpecial() {
+    if (Math.random() < SPECIAL_CHANCE) return Math.random() < 0.5 ? 'hot' : 'trick';
+    return null;
+  }
+
+  // Stage table (loosely modeled on typical arcade basketball machine settings):
+  // each stage has its own time budget and a cumulative score threshold to clear it;
+  // "lateWindow" seconds before time runs out, per-shot base score bumps up (this doubles
+  // as this game's existing Fever Time window/visual, rather than stacking a separate x2 on top).
+  // requiredGain is how many NEW points must be scored during that stage alone (not the running
+  // total) to clear it — otherwise an easy stage 1 lets players bank enough surplus to coast
+  // through stage 2/3's thresholds despite those stages being genuinely harder (moving hoop).
+  // The numbers mirror the original cumulative reference table (45 / 150 / 250) as differences.
+  const STAGES = [
+    { duration: 60, requiredGain: 45, baseScore: 2, lateScore: 3, lateWindow: 15 },
+    { duration: 55, requiredGain: 105, baseScore: 2, lateScore: 3, lateWindow: 20 },
+    { duration: 50, requiredGain: 100, baseScore: 2, lateScore: 3, lateWindow: 20 },
+  ];
+
+  let W = 0, H = 0, DPR = 1;
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    canvas.width = W * DPR;
+    canvas.height = H * DPR;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    layoutCourt();
+    // Desktop windows resize far more often than mobile viewports (dragging the window edge,
+    // toggling devtools, OS display scaling). Without this, a ball keeps its old coordinates
+    // from before the resize and can end up past the new (e.g. narrower) canvas edge — invisible.
+    if (typeof balls !== 'undefined' && balls.length) {
+      balls.forEach(b => {
+        if (b.state === 'ready') {
+          b.x = court.ballStartX;
+          b.y = court.ballStartY;
+        } else {
+          b.x = Math.min(Math.max(b.x, court.ballRadius), W - court.ballRadius);
+          b.y = Math.min(Math.max(b.y, court.ballRadius), court.groundY);
+        }
+      });
+    }
+  }
+  window.addEventListener('resize', resize);
+
+  // ---------- Audio (Web Audio API synthesized SFX) ----------
+  let actx = null;
+  function ensureAudio() {
+    if (!actx) {
+      actx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (actx.state === 'suspended') actx.resume();
+  }
+  function beep({freq = 440, duration = 0.12, type = 'sine', gain = 0.2, slideTo = null, delay = 0}) {
+    if (!actx) return;
+    const t0 = actx.currentTime + delay;
+    const osc = actx.createOscillator();
+    const g = actx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t0 + duration);
+    g.gain.setValueAtTime(gain, t0);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+    osc.connect(g).connect(actx.destination);
+    osc.start(t0);
+    osc.stop(t0 + duration + 0.02);
+  }
+  const sfx = {
+    shoot: () => beep({freq: 260, slideTo: 420, duration: 0.1, type: 'triangle', gain: 0.15}),
+    score: () => { beep({freq: 660, duration: 0.09, type: 'sine', gain: 0.2}); beep({freq: 880, duration: 0.12, type: 'sine', gain: 0.18, delay: 0.07}); },
+    rim: () => beep({freq: 180, duration: 0.08, type: 'square', gain: 0.1}),
+    combo: () => { beep({freq: 520, duration: 0.08, gain:0.18}); beep({freq: 780, duration: 0.1, gain:0.18, delay:0.06}); beep({freq: 1040, duration: 0.12, gain:0.16, delay:0.12}); },
+    fever: () => { beep({freq: 200, slideTo: 900, duration: 0.4, type: 'sawtooth', gain: 0.15}); },
+    buzzer: () => { beep({freq: 320, duration: 0.5, type: 'square', gain: 0.2}); beep({freq: 160, duration: 0.6, type: 'square', gain: 0.2, delay: 0.1}); },
+    surpass: () => { beep({freq: 500, slideTo: 1200, duration: 0.22, type: 'sine', gain: 0.2}); beep({freq: 900, duration: 0.18, type: 'sine', gain: 0.18, delay: 0.1}); },
+  };
+
+  // ---------- Court / geometry (side view) ----------
+  let court = {};
+  function layoutCourt() {
+    // Front-facing "arcade machine" layout: hoop centered near the top,
+    // shooter/ball centered near the bottom, shot travels upward.
+    const groundY = H * 0.86;
+    const hoopBaseX = W * 0.5;
+    const hoopBaseY = Math.max(H * 0.26, 100);
+    const rimRadius = Math.max(30, Math.min(W, H) * 0.06);
+    const boardHeight = Math.max(10, H * 0.02);
+    const ballStartY = groundY - Math.max(30, H * 0.04);
+    const shootDistance = ballStartY - hoopBaseY; // vertical distance the ball must travel to clear the base rim height
+
+    // The fixed shot speed only gives a straight-up swipe enough apex margin to clear the BASE
+    // rim height by a set percentage; any vertical hoop drift eats directly into that same margin,
+    // so both numbers are derived from one shared budget to guarantee the hoop never drifts higher
+    // than the ball can actually reach.
+    const apexMarginFraction = 0.32; // total headroom above the base rim, as a fraction of shootDistance
+    const hoopRangeYFraction = 0.4; // how much of that headroom the vertical drift is allowed to use (rest stays as safety buffer)
+
+    court = {
+      groundY,
+      hoopBaseX,
+      hoopBaseY,
+      hoopX: hoopBaseX,
+      hoopY: hoopBaseY,
+      // from stage 2 the hoop drifts left/right, from stage 3 it also drifts up/down
+      hoopRangeX: Math.min(W * 0.26, W / 2 - rimRadius * 1.8),
+      hoopRangeY: shootDistance * apexMarginFraction * hoopRangeYFraction,
+      rimRadius,
+      boardWidth: rimRadius * 2.6,
+      boardHeight,
+      // ballStartX/Y is the fixed shooter position — stays put even while the hoop moves
+      ballStartX: hoopBaseX,
+      ballStartY,
+      ballRadius: Math.max(14, Math.min(W, H) * 0.028),
+      gravity: Math.max(1400, H * 1.6),
+    };
+    court.boardBottomY = court.hoopY - rimRadius * 0.15;
+    court.boardTopY = court.boardBottomY - boardHeight;
+    // Fixed shot speed: swipe direction alone decides where the ball goes (no power/charge control yet).
+    const desiredApexHeight = shootDistance * (1 + apexMarginFraction);
+    court.shotSpeed = Math.sqrt(2 * court.gravity * Math.max(1, desiredApexHeight));
+  }
+
+  const HOOP_MOVE_FREQ_X = (2 * Math.PI) / 3.2; // left/right period ~3.2s
+  const HOOP_MOVE_FREQ_Y = (2 * Math.PI) / 2.6; // up/down period ~2.6s
+  let hoopMoveTime = 0;
+
+  function updateHoopMotion(dt) {
+    hoopMoveTime += dt;
+    let offsetX = 0, offsetY = 0;
+    if (stageIndex >= 1) offsetX = Math.sin(hoopMoveTime * HOOP_MOVE_FREQ_X) * court.hoopRangeX;
+    if (stageIndex >= 2) offsetY = Math.sin(hoopMoveTime * HOOP_MOVE_FREQ_Y + 1.3) * court.hoopRangeY;
+    court.hoopX = court.hoopBaseX + offsetX;
+    court.hoopY = court.hoopBaseY + offsetY;
+    court.boardBottomY = court.hoopY - court.rimRadius * 0.15;
+    court.boardTopY = court.boardBottomY - court.boardHeight;
+  }
+
+  // ---------- Game State ----------
+  let state = 'home'; // home | playing | result | leaderboard
+  let mode = 'solo'; // solo | duo
+  let activePlayer = 1; // 1 | 2 (duo mode only)
+  let p1Name = 'P1', p2Name = 'P2';
+  let p1Result = null;
+  let pendingDuoSave = null;
+  let p2Surpassed = false; // one-shot flag: has P2 crossed P1's score yet this run
+  let nameEntrySubmit = null;
+  let stageIndex = 0;
+  let scoreAtStageStart = 0; // score snapshot when the current stage began — the pass condition is the GAIN since this point
+  let timeLeft = STAGES[0].duration;
+  let score = 0;
+  let combo = 0;
+  let maxCombo = 0;
+  let shots = 0;
+  let hits = 0;
+  let fever = false;
+  let cleared = false; // did the run end by clearing every stage, vs failing a threshold
+  let lastTimestamp = 0;
+  let countdownAcc = 0;
+
+  const BALL_POOL_SIZE = 6; // multiple balls in play: misses/makes roll back and queue up instead of instant reset
+  let balls = []; // each: {x,y,vx,vy,state:'ready'|'flying'|'returning',scoredCounted,queueIndex,rollAngle}
+  let nextQueueIndex = 0;
+  let particles = [];
+  let floatingTexts = [];
+  let netWobble = 0;
+
+  let dragging = false;
+  let dragBall = null;
+  let dragStart = null;
+  let dragCurrent = null;
+
+  function makeReadyBall() {
+    return {
+      x: court.ballStartX,
+      y: court.ballStartY,
+      vx: 0, vy: 0,
+      state: 'ready',
+      scoredCounted: false,
+      queueIndex: nextQueueIndex++,
+      rollAngle: 0,
+      special: rollSpecial(),
+    };
+  }
+
+  function resetBalls() {
+    nextQueueIndex = 0;
+    balls = [];
+    for (let i = 0; i < BALL_POOL_SIZE; i++) balls.push(makeReadyBall());
+  }
+
+  function readyBallsSorted() {
+    return balls.filter(b => b.state === 'ready').sort((a, b) => a.queueIndex - b.queueIndex);
+  }
+
+  function frontReadyBall() {
+    const list = readyBallsSorted();
+    return list.length ? list[0] : null;
+  }
+
+  function stackPosition(rank) {
+    return {
+      x: court.ballStartX + rank * 10,
+      y: court.ballStartY - rank * 14,
+      scale: 1 - Math.min(0.18, rank * 0.06),
+    };
+  }
+
+  function startGame() {
+    ensureAudio();
+    stageIndex = 0; cleared = false; scoreAtStageStart = 0;
+    score = 0; combo = 0; maxCombo = 0; shots = 0; hits = 0;
+    timeLeft = STAGES[0].duration; fever = false; hoopMoveTime = 0;
+    particles = []; floatingTexts = [];
+    resetBalls();
+    state = 'playing';
+    showScreen(null);
+    hud.classList.remove('hidden');
+    updateHud();
+    lastTimestamp = performance.now();
+    requestAnimationFrame(loop);
+  }
+
+  function advanceStage() {
+    stageIndex++;
+    scoreAtStageStart = score;
+    timeLeft = STAGES[stageIndex].duration;
+    fever = false;
+    hoopMoveTime = 0;
+    feverBanner.classList.remove('show');
+    flashStageBanner(`STAGE ${stageIndex + 1}`);
+    sfx.combo();
+    updateHud();
+  }
+
+  function flashStageBanner(text) {
+    stageBanner.textContent = text;
+    stageBanner.classList.add('show');
+    clearTimeout(flashStageBanner._t);
+    flashStageBanner._t = setTimeout(() => stageBanner.classList.remove('show'), 1400);
+  }
+
+  function buildResultEntry(name) {
+    const accuracy = shots > 0 ? Math.round((hits / shots) * 100) : 0;
+    const stageReached = cleared ? STAGES.length : stageIndex + 1;
+    return {
+      name, score, shots, hits, accuracy, maxCombo, stageReached,
+      date: new Date().toLocaleDateString('zh-TW'),
+    };
+  }
+
+  function saveLeaderboardEntry(entry) {
+    const board = loadLeaderboard();
+    board.push(entry);
+    board.sort((a, b) => b.score - a.score);
+    localStorage.setItem(LB_KEY, JSON.stringify(board.slice(0, 10)));
+  }
+
+  function endGame() {
+    state = 'result';
+    hud.classList.add('hidden');
+    feverBanner.classList.remove('show');
+    hudTarget.classList.add('hidden');
+    sfx.buzzer();
+
+    if (mode === 'duo') {
+      if (activePlayer === 1) {
+        p1Result = buildResultEntry(p1Name);
+        openNameEntry({
+          title: '🏀 玩家 2 登場',
+          subtitle: `P1（${p1Name}）成績：${score} 分，看你能不能超越！`,
+          onSubmit: (name) => {
+            p2Name = name;
+            activePlayer = 2;
+            p2Surpassed = false;
+            startGame();
+          },
+        });
+      } else {
+        const p2Result = buildResultEntry(p2Name);
+        showDuoResult(p1Result, p2Result);
+      }
+      return;
+    }
+
+    // ---- Solo result screen ----
+    const accuracy = shots > 0 ? Math.round((hits / shots) * 100) : 0;
+    document.getElementById('res-score').textContent = score;
+    document.getElementById('res-accuracy').textContent = accuracy + '%';
+    document.getElementById('res-shots').textContent = shots;
+    document.getElementById('res-combo').textContent = maxCombo;
+
+    const title = document.getElementById('result-title');
+    const subtitle = document.getElementById('result-subtitle');
+    if (cleared) {
+      title.textContent = '🏆 全部過關！';
+      subtitle.textContent = `恭喜打完全部 ${STAGES.length} 關，最終分數 ${score} 分！`;
+    } else {
+      title.textContent = '💥 挑戰結束';
+      const stageGain = score - scoreAtStageStart;
+      subtitle.textContent = `止步於第 ${stageIndex + 1} 關（本關需得 ${STAGES[stageIndex].requiredGain} 分，只得 ${stageGain} 分，差 ${Math.max(0, STAGES[stageIndex].requiredGain - stageGain)} 分）`;
+    }
+
+    const board = loadLeaderboard();
+    const wouldRank = board.length < 10 || score > board[board.length - 1].score;
+    const rankNote = document.getElementById('rank-note');
+    if (wouldRank && score > 0) {
+      rankNote.textContent = '🎉 這個成績可以擠進排行榜前 10 名！';
+      rankNote.classList.remove('hidden');
+    } else {
+      rankNote.classList.add('hidden');
+    }
+    document.getElementById('player-name').value = '';
+    showScreen('result');
+  }
+
+  function saveCurrentResult() {
+    const nameInput = document.getElementById('player-name').value.trim();
+    saveLeaderboardEntry(buildResultEntry(nameInput || 'Guest'));
+  }
+
+  function openNameEntry({ title, subtitle, onSubmit }) {
+    document.getElementById('name-entry-title').textContent = title;
+    const subEl = document.getElementById('name-entry-subtitle');
+    if (subtitle) { subEl.textContent = subtitle; subEl.classList.remove('hidden'); }
+    else subEl.classList.add('hidden');
+    document.getElementById('name-entry-input').value = '';
+    nameEntrySubmit = onSubmit;
+    state = 'result';
+    showScreen('nameEntry');
+  }
+
+  function startDuoFlow() {
+    mode = 'duo';
+    activePlayer = 1;
+    p1Result = null;
+    pendingDuoSave = null;
+    openNameEntry({
+      title: '🏀 玩家 1 登場',
+      subtitle: null,
+      onSubmit: (name) => {
+        p1Name = name;
+        startGame();
+      },
+    });
+  }
+
+  function showDuoResult(p1, p2) {
+    document.getElementById('duo-p1-name').textContent = p1.name;
+    document.getElementById('duo-p2-name').textContent = p2.name;
+    document.getElementById('duo-p1-score').textContent = p1.score;
+    document.getElementById('duo-p2-score').textContent = p2.score;
+    document.getElementById('duo-p1-acc').textContent = p1.accuracy + '%';
+    document.getElementById('duo-p2-acc').textContent = p2.accuracy + '%';
+    document.getElementById('duo-p1-combo').textContent = p1.maxCombo;
+    document.getElementById('duo-p2-combo').textContent = p2.maxCombo;
+    document.getElementById('duo-p1-stage').textContent = p1.stageReached;
+    document.getElementById('duo-p2-stage').textContent = p2.stageReached;
+
+    const title = document.getElementById('duo-result-title');
+    if (p1.score === p2.score) title.textContent = '🤝 平手！';
+    else if (p2.score > p1.score) title.textContent = `🏆 ${p2.name} 勝出！`;
+    else title.textContent = `🏆 ${p1.name} 勝出！`;
+
+    pendingDuoSave = { p1, p2 };
+    state = 'result';
+    showScreen('duoResult');
+  }
+
+  function loadLeaderboard() {
+    try {
+      const raw = localStorage.getItem(LB_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function renderLeaderboard() {
+    const body = document.getElementById('leaderboard-body');
+    const board = loadLeaderboard();
+    if (board.length === 0) {
+      body.innerHTML = '<tr><td colspan="6" style="color:var(--muted);padding:16px;">尚無紀錄，快來挑戰第一名！</td></tr>';
+      return;
+    }
+    body.innerHTML = board.map((e, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td>${escapeHtml(e.name)}</td>
+        <td>${e.score}</td>
+        <td>${e.accuracy}%</td>
+        <td>${e.maxCombo}</td>
+        <td>${e.stageReached || 1}</td>
+      </tr>
+    `).join('');
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function showScreen(name) {
+    Object.values(screens).forEach(s => s.classList.add('hidden'));
+    if (name && screens[name]) screens[name].classList.remove('hidden');
+  }
+
+  function updateHud() {
+    hudStage.textContent = stageIndex + 1;
+    hudTime.textContent = Math.max(0, Math.ceil(timeLeft));
+    const stageGain = score - scoreAtStageStart;
+    hudScore.textContent = `${stageGain}/${STAGES[stageIndex].requiredGain} (${score})`;
+    hudCombo.textContent = combo;
+    updateTargetDisplay();
+  }
+
+  function updateTargetDisplay() {
+    if (!(mode === 'duo' && activePlayer === 2 && p1Result)) {
+      hudTarget.classList.add('hidden');
+      return;
+    }
+    hudTarget.classList.remove('hidden');
+    hudTarget.classList.remove('near', 'ahead');
+    const target = p1Result.score;
+    const diff = target - score;
+    if (score >= target) {
+      hudTarget.classList.add('ahead');
+      hudTarget.textContent = diff === 0 ? `🔥 打平了 ${p1Result.name} 的 ${target} 分！` : `🔥 領先 ${p1Result.name} +${-diff} 分！`;
+    } else if (score >= target * 0.85) {
+      hudTarget.classList.add('near');
+      hudTarget.textContent = `快追上了！還差 ${diff} 分`;
+    } else {
+      hudTarget.textContent = `目標：${target}（還差 ${diff} 分）`;
+    }
+  }
+
+  function flashCombo(text) {
+    comboBadge.textContent = text;
+    comboBadge.style.opacity = '1';
+    clearTimeout(flashCombo._t);
+    flashCombo._t = setTimeout(() => { comboBadge.style.opacity = '0'; }, 700);
+  }
+
+  function spawnFloatingText(x, y, text, color) {
+    floatingTexts.push({x, y, text, color, life: 1, vy: -40});
+  }
+
+  function spawnParticles(x, y, color, count = 14) {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 60 + Math.random() * 140;
+      particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 60,
+        life: 1,
+        color,
+      });
+    }
+  }
+
+  // ---------- Input handling ----------
+  function pointerPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const p = e.touches ? e.touches[0] : e;
+    return { x: p.clientX - rect.left, y: p.clientY - rect.top };
+  }
+
+  function onPointerDown(e) {
+    if (state !== 'playing') return;
+    const fb = frontReadyBall();
+    if (!fb) return; // no ball available yet, wait for one to roll back
+    const pos = pointerPos(e);
+    const d = Math.hypot(pos.x - fb.x, pos.y - fb.y);
+    if (d < court.ballRadius * 3.2) {
+      dragging = true;
+      dragBall = fb;
+      dragStart = { x: fb.x, y: fb.y };
+      dragCurrent = pos;
+      e.preventDefault();
+    }
+  }
+  function onPointerMove(e) {
+    if (!dragging) return;
+    dragCurrent = pointerPos(e);
+    e.preventDefault();
+  }
+  function onPointerUp(e) {
+    if (!dragging) return;
+    dragging = false;
+    // Direct swipe mapping: the ball flies in the same direction you swiped, at a fixed speed.
+    const dx = dragCurrent.x - dragStart.x;
+    const dy = dragCurrent.y - dragStart.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist > 10 && dragBall) {
+      const angle = Math.atan2(dy, dx);
+      dragBall.vx = Math.cos(angle) * court.shotSpeed;
+      dragBall.vy = Math.sin(angle) * court.shotSpeed;
+      dragBall.state = 'flying';
+      dragBall.scoredCounted = false;
+      shots++;
+      sfx.shoot();
+    }
+    dragBall = null;
+    dragCurrent = null;
+  }
+
+  // A fast mousedown->small-move->mouseup on a <canvas> can be misread by the browser as starting
+  // a native HTML5 drag-and-drop gesture (canvas is natively draggable), which steals every
+  // subsequent mousemove/mouseup away from our own handlers mid-shot — the ball's drag state
+  // never gets released, and visually it looks like the ball just vanished. Block it outright.
+  canvas.addEventListener('dragstart', (e) => e.preventDefault());
+  canvas.addEventListener('mousedown', onPointerDown);
+  window.addEventListener('mousemove', onPointerMove);
+  window.addEventListener('mouseup', onPointerUp);
+  canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+  canvas.addEventListener('touchmove', onPointerMove, { passive: false });
+  canvas.addEventListener('touchend', onPointerUp, { passive: false });
+
+  // Safety net: if a drag is ever left in progress with no matching mouseup/touchend reaching us
+  // (lost window focus, a native drag slipping through anyway, etc.), cancel it cleanly instead
+  // of leaving the grabbed ball's drag state orphaned.
+  window.addEventListener('blur', () => { dragging = false; dragBall = null; dragCurrent = null; });
+
+  // ---------- Physics / update ----------
+  const ROLL_SPEED_FACTOR = 0.9; // px/s per min(W,H); how fast a landed ball rolls back to the pickup spot
+
+  function ballRadiusOf(ball) {
+    const def = ball.special ? SPECIAL_TYPES[ball.special] : null;
+    return court.ballRadius * (def ? def.radiusScale : 1);
+  }
+
+  function updateFlyingBall(ball, dt) {
+    const r = ballRadiusOf(ball);
+    const prevX = ball.x;
+    const prevY = ball.y;
+    ball.vy += court.gravity * dt;
+    ball.x += ball.vx * dt;
+    ball.y += ball.vy * dt;
+    ball.rollAngle = (ball.rollAngle || 0) + (ball.vx / r) * dt;
+
+    // Rim posts: the ball can clip either edge of the rim and realistically deflect off it,
+    // instead of a single circle around the rim center.
+    const postRadius = Math.max(4, court.rimRadius * 0.12);
+    const posts = [
+      { x: court.hoopX - court.rimRadius, y: court.hoopY },
+      { x: court.hoopX + court.rimRadius, y: court.hoopY },
+    ];
+    posts.forEach(post => {
+      const dx = ball.x - post.x;
+      const dy = (ball.y - post.y) * 0.5; // the rim is foreshortened (drawn as an ellipse), so flatten the vertical collision extent to match
+      const dist = Math.hypot(dx, dy);
+      const minDist = r * 0.6 + postRadius;
+      if (dist > 0 && dist < minDist) {
+        const nx = dx / dist, ny = dy / dist;
+        const overlap = minDist - dist;
+        ball.x += nx * overlap;
+        ball.y += ny * overlap * 2;
+        const dot = ball.vx * nx + ball.vy * ny;
+        if (dot < 0) {
+          ball.vx -= 2 * dot * nx * 0.65;
+          ball.vy -= 2 * dot * ny * 0.65;
+          sfx.rim();
+        }
+      }
+    });
+
+    // Scoring: detect the moment the ball crosses the rim plane heading down,
+    // cleanly through the hoop opening (not just grazing an edge, which the posts above already handle).
+    if (!ball.scoredCounted && ball.vy > 0 && prevY <= court.hoopY && ball.y > court.hoopY) {
+      const crossX = prevX + (ball.x - prevX) * ((court.hoopY - prevY) / (ball.y - prevY || 1));
+      if (Math.abs(crossX - court.hoopX) < court.rimRadius * 0.72) {
+        ball.scoredCounted = true;
+        onScore(ball);
+      }
+    }
+
+    // Backboard collision (flat panel hanging above/behind the rim, facing the player).
+    // Only catches balls that overshoot to the side of the rim opening — a shot lined up
+    // with the hoop itself must be able to rise straight through this zone to arc back down into it.
+    const boardHalf = court.boardWidth / 2;
+    if (
+      ball.x > court.hoopX - boardHalf && ball.x < court.hoopX + boardHalf &&
+      Math.abs(ball.x - court.hoopX) > court.rimRadius * 0.95 &&
+      ball.y < court.boardBottomY + r && ball.y > court.boardTopY - r &&
+      ball.vy < 0
+    ) {
+      ball.y = court.boardBottomY + r;
+      ball.vy *= -0.5;
+    }
+
+    // Walls
+    if (ball.x < r) { ball.x = r; ball.vx *= -0.5; }
+    if (ball.x > W - r) { ball.x = W - r; ball.vx *= -0.5; }
+
+    // Ceiling: a strong shot must never be able to fly off the top of the screen and vanish
+    const ceilingY = r;
+    if (ball.y < ceilingY) { ball.y = ceilingY; ball.vy = Math.abs(ball.vy) * 0.6; }
+
+    // Ground: lands, then rolls back toward the pickup spot instead of resetting instantly
+    if (ball.y > court.groundY) {
+      if (!ball.scoredCounted) {
+        onMiss(ball);
+      }
+      ball.y = court.groundY - r;
+      const toPickup = court.ballStartX - ball.x;
+      const rollSpeed = Math.min(W, H) * ROLL_SPEED_FACTOR;
+      ball.vx = toPickup === 0 ? 0 : Math.sign(toPickup) * rollSpeed;
+      ball.vy = 0;
+      ball.state = 'returning';
+    }
+  }
+
+  function updateReturningBall(ball, dt) {
+    const r = ballRadiusOf(ball);
+    ball.x += ball.vx * dt;
+    ball.rollAngle = (ball.rollAngle || 0) + (ball.vx / r) * dt;
+    if (Math.abs(ball.x - court.ballStartX) < 6) {
+      ball.x = court.ballStartX;
+      ball.y = court.ballStartY;
+      ball.vx = 0; ball.vy = 0;
+      ball.state = 'ready';
+      ball.queueIndex = nextQueueIndex++;
+      ball.special = rollSpecial();
+    }
+  }
+
+  function onScore(ball) {
+    hits++;
+    combo++;
+    maxCombo = Math.max(maxCombo, combo);
+    const stage = STAGES[stageIndex];
+    const base = fever ? stage.lateScore : stage.baseScore;
+    let gained = base;
+    let comboTag = '';
+    if (combo >= 5) { gained = base + 4; comboTag = ' COMBO!'; }
+    else if (combo >= 3) { gained = base + 2; comboTag = ' COMBO!'; }
+    const specialDef = ball.special ? SPECIAL_TYPES[ball.special] : null;
+    const multiplier = specialDef ? specialDef.multiplier : 1;
+    const finalGained = gained * multiplier;
+    score += finalGained;
+    const label = multiplier > 1 ? `+${finalGained} x${multiplier}!${comboTag}` : `+${finalGained}${comboTag}`;
+    const color = specialDef ? specialDef.color : (fever ? '#ff4d6d' : '#3ad1c9');
+    spawnFloatingText(court.hoopX, court.hoopY, label, color);
+    spawnParticles(court.hoopX, court.hoopY, color, specialDef ? 22 : 14);
+    netWobble = 1;
+    if (combo === 3 || combo === 5) { flashCombo(combo + ' COMBO!'); sfx.combo(); }
+    else sfx.score();
+    updateHud();
+
+    if (mode === 'duo' && activePlayer === 2 && p1Result && !p2Surpassed && score >= p1Result.score) {
+      p2Surpassed = true;
+      spawnParticles(W / 2, 90, '#ffd84d', 30);
+      sfx.surpass();
+    }
+  }
+
+  function onMiss(ball) {
+    if (combo > 0) spawnFloatingText(ball.x, ball.y, 'MISS', '#9aa3b8');
+    combo = 0;
+    updateHud();
+  }
+
+  function update(dt) {
+    updateHoopMotion(dt);
+    timeLeft -= dt;
+    const stage = STAGES[stageIndex];
+    if (!fever && timeLeft <= stage.lateWindow) {
+      fever = true;
+      feverBanner.classList.add('show');
+      sfx.fever();
+      setTimeout(() => feverBanner.classList.remove('show'), 1400);
+    }
+    if (timeLeft <= 0) {
+      timeLeft = 0;
+      updateHud();
+      const stageGain = score - scoreAtStageStart;
+      if (stageGain >= stage.requiredGain) {
+        if (stageIndex >= STAGES.length - 1) {
+          cleared = true;
+          endGame();
+        } else {
+          advanceStage();
+        }
+      } else {
+        endGame();
+      }
+      return;
+    }
+    balls.forEach(b => {
+      if (b.state === 'flying') updateFlyingBall(b, dt);
+      else if (b.state === 'returning') updateReturningBall(b, dt);
+    });
+    netWobble = Math.max(0, netWobble - dt * 2.2);
+
+    particles.forEach(p => {
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vy += 260 * dt;
+      p.life -= dt * 1.1;
+    });
+    particles = particles.filter(p => p.life > 0);
+
+    floatingTexts.forEach(t => { t.y += t.vy * dt; t.life -= dt * 0.9; });
+    floatingTexts = floatingTexts.filter(t => t.life > 0);
+
+    countdownAcc += dt;
+    if (countdownAcc >= 0.2) { countdownAcc = 0; updateHud(); }
+  }
+
+  // ---------- Rendering ----------
+  function drawBallShape(x, y, radius, rotation, color, glow) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rotation);
+    if (glow) {
+      ctx.shadowColor = glow;
+      ctx.shadowBlur = radius * 1.1;
+    }
+    ctx.fillStyle = color || '#ff7a30';
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#1b1f2a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(-radius, 0);
+    ctx.lineTo(radius, 0);
+    ctx.moveTo(0, -radius);
+    ctx.lineTo(0, radius);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    // gym backdrop behind the court (wall + faint bleacher stripes)
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, court.groundY);
+    skyGrad.addColorStop(0, '#232a40');
+    skyGrad.addColorStop(1, '#171b29');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, W, court.groundY);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    const stripeW = Math.max(16, W * 0.035);
+    for (let x = -stripeW; x < W; x += stripeW * 2) {
+      ctx.fillRect(x, 0, stripeW, court.groundY * 0.6);
+    }
+
+    // fever / idle ambient tint
+    ctx.fillStyle = fever ? 'rgba(255,77,109,0.06)' : 'rgba(58,209,201,0.04)';
+    ctx.fillRect(0, 0, W, H);
+
+    // wood floor
+    const floorGrad = ctx.createLinearGradient(0, court.groundY, 0, H);
+    floorGrad.addColorStop(0, '#c08a4e');
+    floorGrad.addColorStop(1, '#8f5c30');
+    ctx.fillStyle = floorGrad;
+    ctx.fillRect(0, court.groundY, W, H - court.groundY);
+
+    // floor planks
+    ctx.strokeStyle = 'rgba(0,0,0,0.14)';
+    ctx.lineWidth = 1;
+    const plankH = Math.max(12, (H - court.groundY) / 6);
+    for (let y = court.groundY + plankH; y < H; y += plankH) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(W, y);
+      ctx.stroke();
+    }
+
+    // free-throw key / paint under the hoop
+    const keyWidth = court.rimRadius * 3.2;
+    const keyTopY = court.groundY - (court.groundY - court.hoopY) * 0.35;
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(court.hoopX - keyWidth / 2, keyTopY, keyWidth, court.groundY - keyTopY);
+    ctx.beginPath();
+    ctx.arc(court.hoopX, keyTopY, keyWidth * 0.42, Math.PI, Math.PI * 2);
+    ctx.stroke();
+
+    // baseline
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, court.groundY);
+    ctx.lineTo(W, court.groundY);
+    ctx.stroke();
+
+    // support pole (behind backboard, down to the ground)
+    ctx.fillStyle = '#2a2e3d';
+    ctx.fillRect(court.hoopX - 6, court.boardBottomY, 12, court.groundY - court.boardBottomY);
+
+    // backboard (flat panel facing the player, above/behind the rim)
+    ctx.fillStyle = '#e9ecf5';
+    ctx.fillRect(court.hoopX - court.boardWidth / 2, court.boardTopY, court.boardWidth, court.boardHeight);
+    ctx.strokeStyle = '#c7cbe0';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(court.hoopX - court.boardWidth / 2, court.boardTopY, court.boardWidth, court.boardHeight);
+
+    // net wobble visual
+    const wobble = Math.sin(performance.now() / 60) * netWobble * 6;
+
+    // rim (back)
+    ctx.strokeStyle = '#ff7a30';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.ellipse(court.hoopX, court.hoopY, court.rimRadius, court.rimRadius * 0.32, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // rim posts (the metal edges the ball can clip and rattle off)
+    const postRadius = Math.max(4, court.rimRadius * 0.12);
+    ctx.fillStyle = '#ffb27a';
+    [court.hoopX - court.rimRadius, court.hoopX + court.rimRadius].forEach(px => {
+      ctx.beginPath();
+      ctx.arc(px, court.hoopY, postRadius, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // net
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1.5;
+    const netLen = court.rimRadius * 1.4;
+    for (let i = -3; i <= 3; i++) {
+      const sx = court.hoopX + (i / 3) * court.rimRadius;
+      ctx.beginPath();
+      ctx.moveTo(sx, court.hoopY);
+      ctx.lineTo(court.hoopX + (i/3) * court.rimRadius * 0.4 + wobble, court.hoopY + netLen);
+      ctx.stroke();
+    }
+
+    // predicted trajectory while dragging (direct swipe direction, fixed speed)
+    if (dragging && dragCurrent) {
+      const dx = dragCurrent.x - dragStart.x;
+      const dy = dragCurrent.y - dragStart.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 10) {
+        const angle = Math.atan2(dy, dx);
+        let vx = Math.cos(angle) * court.shotSpeed;
+        let vy = Math.sin(angle) * court.shotSpeed;
+        let px = dragStart.x, py = dragStart.y;
+        ctx.fillStyle = 'rgba(255,255,255,0.45)';
+        for (let i = 0; i < 18; i++) {
+          vy += court.gravity * 0.045;
+          px += vx * 0.045;
+          py += vy * 0.045;
+          if (py > court.groundY) break;
+          ctx.beginPath();
+          ctx.arc(px, py, Math.max(2, 4 - i * 0.15), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // swipe direction arrow (no power/charge for now)
+        ctx.strokeStyle = 'rgba(58,209,201,0.8)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(dragStart.x, dragStart.y);
+        ctx.lineTo(dragCurrent.x, dragCurrent.y);
+        ctx.stroke();
+      }
+    }
+
+    // balls: stacked "ready" queue (back to front), rolling-back balls, then flying balls on top
+    const readyList = readyBallsSorted();
+    for (let r = readyList.length - 1; r >= 0; r--) {
+      const b = readyList[r];
+      const def = b.special ? SPECIAL_TYPES[b.special] : null;
+      const pos = stackPosition(r);
+      const radius = court.ballRadius * (def ? def.radiusScale : 1) * pos.scale;
+      drawBallShape(pos.x, pos.y, radius, 0, def && def.color, def && def.glow);
+    }
+    balls.forEach(b => {
+      if (b.state !== 'returning') return;
+      const def = b.special ? SPECIAL_TYPES[b.special] : null;
+      const radius = court.ballRadius * (def ? def.radiusScale : 1);
+      drawBallShape(b.x, b.y, radius, b.rollAngle || 0, def && def.color, def && def.glow);
+    });
+    balls.forEach(b => {
+      if (b.state !== 'flying') return;
+      const def = b.special ? SPECIAL_TYPES[b.special] : null;
+      const depthProgress = Math.max(0, Math.min(1.2, (court.groundY - b.y) / (court.groundY - court.hoopY)));
+      const drawRadius = court.ballRadius * (def ? def.radiusScale : 1) * (1 - 0.32 * Math.min(1, depthProgress));
+      drawBallShape(b.x, b.y, drawRadius, b.rollAngle || 0, def && def.color, def && def.glow);
+    });
+
+    // particles
+    particles.forEach(p => {
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+
+    // floating texts
+    floatingTexts.forEach(t => {
+      ctx.globalAlpha = Math.max(0, t.life);
+      ctx.fillStyle = t.color;
+      ctx.font = 'bold 20px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(t.text, t.x, t.y);
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  function loop(ts) {
+    if (state !== 'playing') return;
+    const dt = Math.min(0.033, (ts - lastTimestamp) / 1000);
+    lastTimestamp = ts;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // idle render loop for background screens
+  function idleDraw() {
+    if (state !== 'playing') {
+      draw();
+      requestAnimationFrame(idleDraw);
+    }
+  }
+
+  // ---------- UI wiring ----------
+  document.getElementById('btn-start-solo').addEventListener('click', () => {
+    mode = 'solo';
+    startGame();
+  });
+  document.getElementById('btn-start-duo').addEventListener('click', startDuoFlow);
+  document.getElementById('btn-leaderboard').addEventListener('click', () => {
+    renderLeaderboard();
+    showScreen('leaderboard');
+  });
+  document.getElementById('btn-back-home').addEventListener('click', () => showScreen('home'));
+  document.getElementById('btn-save-replay').addEventListener('click', () => {
+    saveCurrentResult();
+    startGame();
+  });
+  document.getElementById('btn-save-leaderboard').addEventListener('click', () => {
+    saveCurrentResult();
+    renderLeaderboard();
+    showScreen('leaderboard');
+  });
+  document.getElementById('btn-name-entry-start').addEventListener('click', () => {
+    const val = document.getElementById('name-entry-input').value.trim();
+    if (nameEntrySubmit) nameEntrySubmit(val || 'Guest');
+  });
+  document.getElementById('btn-duo-save').addEventListener('click', () => {
+    if (!pendingDuoSave) return;
+    saveLeaderboardEntry(pendingDuoSave.p1);
+    saveLeaderboardEntry(pendingDuoSave.p2);
+    pendingDuoSave = null;
+    renderLeaderboard();
+    showScreen('leaderboard');
+  });
+  document.getElementById('btn-duo-replay').addEventListener('click', startDuoFlow);
+  document.getElementById('btn-duo-home').addEventListener('click', () => {
+    state = 'home';
+    showScreen('home');
+  });
+
+  // ---------- Init ----------
+  resize();
+  resetBalls();
+  showScreen('home');
+  requestAnimationFrame(idleDraw);
+})();
+</script>
+</body>
+</html>
